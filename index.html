@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 미술 작품 추천 시스템</title>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f7f9fa; color: #333; margin: 0; padding: 40px; }
+        .container { max-width: 1200px; margin: 0 auto; text-align: center; }
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        p { color: #7f8c8d; margin-bottom: 30px; }
+        .upload-section { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: inline-block; margin-bottom: 40px; }
+        input[type="file"] { margin-bottom: 15px; }
+        button { background-color: #3498db; color: white; border: none; padding: 12px 25px; font-size: 16px; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+        button:hover { background-color: #2980b9; }
+        .loading { display: none; margin: 20px; font-weight: bold; color: #e67e22; }
+        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; margin-top: 20px; }
+        .card { background: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 15px; text-align: center; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-5px); }
+        .card img { width: 100%; height: 200px; object-fit: cover; border-radius: 6px; background-color: #eaeaea; }
+        .card h3 { font-size: 14px; margin: 12px 0 5px 0; color: #2c3e50; word-break: break-all; }
+        .card p { font-size: 12px; margin: 0; color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>CNN + ViT + CLIP 감성 기반 미술 추천</h1>
+    <p>이미지를 업로드하시면 감성과 시각적 요소를 분석하여 참신한 작품 20개를 추천해 드립니다.</p>
+
+    <div class="upload-section">
+        <input type="file" id="imageInput" accept="image/*"><br>
+        <button onclick="uploadImage()">추천 알고리즘 실행</button>
+    </div>
+
+    <div class="loading" id="loadingText">AI 모델이 8만 장의 데이터베이스를 탐색 중입니다. 잠시만 기다려주세요...</div>
+
+    <div class="gallery" id="resultGallery"></div>
+</div>
+
+<script>
+async function uploadImage() {
+    const input = document.getElementById('imageInput');
+    const gallery = document.getElementById('resultGallery');
+    const loading = document.getElementById('loadingText');
+
+    if (input.files.length === 0) {
+        alert('이미지 파일을 선택해주세요.');
+        return;
+    }
+
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // UI 초기화 및 로딩 표시
+    gallery.innerHTML = '';
+    loading.style.display = 'block';
+
+    try {
+        // 백엔드 FastAPI 서버의 /recommend 엔드포인트로 요청 전송
+        const response = await fetch('http://localhost:8000/recommend', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) throw new Error('서버 연산 중 오류가 발생했습니다.');
+
+        const results = await response.json();
+        loading.style.display = 'none';
+
+        // 결과물 20개 화면에 뿌리기
+        results.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            
+            // 대용량 트래픽 통제를 위해 구글 드라이브 썸네일 링크 파라미터(&sz=w400) 및 lazy 로딩 적용
+            card.innerHTML = `
+                <img src="${item.image_url}" alt="${item.filename}" loading="lazy">
+                <h3>${item.filename}</h3>
+                <p>Score: ${item.score.toFixed(4)}</p>
+            `;
+            gallery.appendChild(card);
+        });
+
+    } catch (error) {
+        loading.style.display = 'none';
+        alert(error.message);
+    }
+}
+</script>
+
+</body>
+</html>
